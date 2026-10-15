@@ -1,0 +1,100 @@
+## 1. Audit Baseline and Guardrails
+
+- [ ] 1.1 Record the measured baseline in `openspec/changes/jarvis-hud-stabilization-redesign/audit-baseline.md`: palette declaration sites (`ui.py` `class C`, `ui_theme.py`, `dashboard/brain3d.py`, `ui_settings.py` inline hex, `ui_layout.py` inline QSS), fixed-size call counts in `ui.py`/`ui_settings.py`, inline `setStyleSheet` counts, `setWordWrap` and elision counts, and the `_jarvis_panel_drag` / `_jarvis_popup_drag` / `_jarvis_floating_panel` consumer list — verify every number is reproducible with the recorded command.
+- [x] 1.2 Enumerate every reference to the legacy generation (`LegacyMainWindow`, `_ArcLogo`, `_ArcLogoButton`, `VideoPreview`, `_CommandWindow`, `FuturisticBackdrop`, and the `class C` constants used only by them) with `grep -rn` across `*.py` and record the list in the baseline file — verify the list is empty of live references before section 8 begins.
+- [ ] 1.3 Enumerate every font family referenced by the HUD and every family registered at startup (`_register_redesign_font`, `_register_app_fonts`), plus the bundled files in `assets/fonts/` — verify the audit names each unreferenced bundled font (expected: Space Grotesk, and Archivo Black / Futura Bold once the legacy removal lands).
+- [ ] 1.4 Capture an offscreen render of every floating panel and every Settings tab before any change (build `MainWindow` and `SettingsWindow` with `QT_QPA_PLATFORM=offscreen`, `grab()` each panel to a PNG under a scratch directory) — verify all panels render without exception so the same script can be rerun after each section as a visual regression check.
+- [x] 1.5 Add `tests/ui/__init__.py` and a shared `tests/ui/qt_harness.py` providing the module-scoped offscreen `QApplication` fixture and panel/`SettingsWindow` builders used by every later test — verify a trivial harness test collects and passes with `python -m pytest tests/ui -q`.
+
+## 2. Design System Consolidation
+
+- [x] 2.1 Add the missing scales to `ui_theme.py`: a 4-step spacing scale, the control-height scale, the font-role map, and the status ramp, keeping exactly three radii and three border weights — verify a token test asserts the vocabulary is closed (no extra radii/weights exported and every exported value is used).
+- [x] 2.2 Add the shared component helpers to `ui_theme.py` (panel shell, header/title block, status chip, section heading, control row, standard button/field styling) replacing per-surface QSS duplication — verify every helper returns styles/values derived only from tokens, asserted by a test that mutates a token and observes the helper output change.
+- [x] 2.3 Make `ui_settings.py` import `ui_theme` and replace its hardcoded hex strings and `_ControlCenterBackdrop` colours with tokens, leaving layout and tab structure unchanged — verify all 17 tabs still build offscreen and a test asserts no literal hex colour remains in the file's widget code.
+- [x] 2.4 Make `ui_layout.py` consume shared tokens instead of its embedded stylesheet, keeping the Layout Editor's fields, actions, and `_layout_elements` JSON shape identical — verify the editor dialog builds offscreen and a round-trip save/load of a layout dict still works.
+- [x] 2.5 Make `dashboard/brain3d.py` consume the shared tokens for its palette instead of its local `#00d4ff` constants, keeping the category colour mapping — verify the scene renders offscreen and a test asserts every scene colour resolves from the token module.
+- [x] 2.6 Implement the legacy accent migration: map the old palette's accent values to the current tokens on load while preserving any custom user value verbatim, and keep `apply_ui_accent` plus `retheme_all_widgets` working — verify a test asserts a legacy value maps to the current accent, a custom value survives unchanged, and both re-theme already-created widgets.
+- [ ] 2.7 Give every floating panel and Settings section one title treatment (icon, title, optional subtitle, status chip, close control) built by the shared header helper — verify an offscreen test asserts every panel header uses the same helper and that the title baseline offset matches across panels.
+
+## 3. Layout Integrity
+
+- [ ] 3.1 Replace the header's fixed height with a content-driven minimum and let titles wrap to at most two lines before eliding — verify an offscreen test with an over-long title asserts no clipped text and that the header grows rather than truncating.
+- [ ] 3.2 Add a shared single-line eliding label for technical text (status chips, counters, telemetry, list metadata) and adopt it across panels — verify a test asserts an over-long status string renders an ellipsis and stays inside its container.
+- [ ] 3.3 Establish the alignment hierarchy (title → decoration → status/subtitle → content → controls) with all margins and gaps taken from the spacing scale — verify a test asserts header/body/control-row left insets agree within tolerance and every gap is a scale value.
+- [ ] 3.4 Replace fixed-size declarations on text-bearing containers with size policies and minimum sizes, keeping fixed sizes only for bounded non-text content — verify an audit test (or a documented grep check) reports no fixed size on a text-bearing widget, excluding the bounded allowlist.
+- [ ] 3.5 Ensure panels scroll rather than compress when content exceeds the available area, and set minimum sizes that keep every control reachable — verify an offscreen test asserts at minimum size that every control is visible or inside a scroll area and none lies outside the panel bounds.
+- [ ] 3.6 Implement resize and screen-change handling so content re-wraps, alignment is preserved, and a panel whose stored geometry is partly or fully offscreen is re-clamped so its header and controls are reachable — verify a test moves a panel offscreen and asserts the clamped position keeps the header reachable.
+- [ ] 3.7 Verify containers do not hide status labels: keep status indicators and counters outside scroll areas and not under scrollbars — verify an offscreen test asserts each panel's status indicator is fully visible and does not intersect its scroll area or scrollbar.
+
+## 4. Window Interaction
+
+- [x] 4.1 Implement drag handling on a dedicated header widget (press/move/release with clamped movement and drag threshold), replacing the `MainWindow.eventFilter` floating-panel drag path — verify a test simulating press/move/release on the header moves the panel by the expected delta and a press below the header moves nothing.
+- [x] 4.2 Delete the invisible 4px drag strip and its construction, and remove the `MainWindow.resizeEvent` branch that repositions the first `JarvisPanelDragStrip` found in the tree — verify a test asserts no drag region exists outside the header band and that resizing the main window leaves every panel's geometry byte-identical.
+- [ ] 4.3 Give the header a visible grab affordance (cursor plus a rendered accent) so dragging is discoverable without a modifier — verify the cursor is set on the header and the affordance is drawn in the offscreen render snapshot.
+- [x] 4.4 Ensure control input always wins over dragging: route header controls, sliders, scroll areas, list items, tabs, inputs, numeric fields, and the embedded browser so they receive their events and the panel does not move — verify tests click the close control, drag a slider, and drag a scrollbar while asserting the panel geometry is unchanged.
+- [x] 4.5 Make every decorative layer click-through (`WA_TransparentForMouseEvents` on backdrops, grids, glows, brackets, scan overlays, particle/animation layers) — verify a test clicks on a decorative region and asserts the event reaches the panel or the control underneath.
+- [ ] 4.6 Make stacking deterministic: raise the interacted panel, keep decorations behind content, and preserve the main surface's stay-on-top behavior — verify a test interacts with two panels and asserts the most recently interacted one is raised, and that a raised panel's header is still hit-testable.
+- [ ] 4.7 Migrate the surviving popup-drag consumers deliberately (the `_jarvis_popup_drag` path) rather than deleting them silently — verify the baseline list from 1.1 has no unreferenced drag consumer left and every popup that should still drag does.
+- [x] 4.8 Keep panel geometry persistence working per panel: save on move/resize end, restore clamped to the visible screen, and never write another panel's geometry — verify a test moves and resizes two panels, reloads, and asserts both restore independently.
+- [ ] 4.9 Make interrupted drags recoverable: pointer released outside the panel, lost pointer capture, panel hidden or resized mid-drag, or a screen change — verify tests for the hide-mid-drag and release-outside cases assert no subsequent pointer movement moves a panel.
+- [ ] 4.10 Confirm existing shortcuts still fire after the drag rework — verify a test (or documented manual check) asserts mute, fullscreen, and interrupt each fire exactly once with panels open.
+
+## 5. Memory Core Scene Stability
+
+- [x] 5.1 Split `BrainGraph3D` state into explicit anchor, view, element, and animation-clock concerns, with the anchor's world position derived from the view and panel geometry only — verify a test asserts the reported anchor position is unchanged across many simulated clock advances.
+- [x] 5.2 Exclude the anchor from the time-driven rotation while keeping the orbit shells and non-anchor orbs animated — verify a test advances the clock and asserts the anchor's projected centre stays within tolerance while at least one other element visibly moves.
+- [x] 5.3 Make camera operations (rotate, zoom, pan) affect only the view, never positions — verify tests assert the anchor's world position is unchanged after each operation and that zoom keeps the anchor centred.
+- [x] 5.4 Compute the frame projection once per frame and reuse it for drawing, hit-testing, and hover — verify an instrumented counter test asserts at most one projection per frame across many simulated pointer-move events.
+- [x] 5.5 Re-frame the scene on panel or window resize so the anchor stays visible and interaction remains possible at minimum size — verify a test resizes the panel to its minimum and asserts the anchor is inside the panel bounds and elements remain hit-testable.
+- [x] 5.6 Keep memory activity observable and non-fatal: publish/queue events without raising from the publisher's thread, and keep storage independent of rendering — verify tests publish events from a worker thread and assert no exception escapes and that rendering failures do not affect the stored data.
+- [x] 5.7 Bound the per-node offset cache: key it so it cannot grow as element counts and spreads change, and release entries for removed elements — verify a test replaces the graph with fewer elements and asserts the cache shrinks, then refreshes repeatedly and asserts it stays stable.
+
+## 6. Memory Core Orb Interaction
+
+- [x] 6.1 Implement the interaction state machine (idle → hover → drag → attract → snap → merged), driven by time-based smoothing with `alpha = 1 - exp(-k · dt)` — verify a test runs the same interaction with two different step intervals and asserts the position trajectories match within tolerance.
+- [x] 6.2 Implement orb selection and dragging: a press on an orb selects and captures it, it follows the pointer, and no other orb or the anchor moves — verify a test drags an orb across the scene and asserts that orb tracks the pointer while the anchor delta is zero and all others are unchanged.
+- [x] 6.3 Implement the attraction radius with a force that starts near zero at the boundary and grows smoothly as distance decreases, with a capped approach speed and no overshoot — verify a test releases an orb inside the attraction radius and asserts monotonically decreasing distance, speed below the cap, and a settled final position.
+- [x] 6.4 Implement the smaller snap radius with a smooth eased merge into the core that is idempotent and never teleports — verify a test releases an orb inside the snap radius and asserts the maximum per-frame position delta stays below a jump threshold and that a second release does not merge or duplicate the orb.
+- [x] 6.5 Make releases outside the snap radius come to rest stably — verify a test asserts the orb settles without oscillating beyond the position tolerance and that hovering near the attraction boundary produces no visible jitter.
+- [x] 6.6 Make interrupted drags leave a consistent scene (panel hidden, resized, or pointer capture lost) — verify a test interrupts a drag, asserts no element remains captured, that stored state matches the rendered state, and that reopening the panel renders normally.
+- [x] 6.7 Keep cosmetic effects (connecting line, trail, pulse, glow, magnetic ring, particle flow, scale transition) lightweight and provably unable to move the anchor — verify a test asserts every anchor and element world position is identical with effects enabled and disabled, and interaction behavior is unchanged when effects are off.
+
+## 7. Runtime Performance and Teardown
+
+- [x] 7.1 Enforce one animation timer per animated component, stopped when hidden or closed — verify a test shows/hides a component repeatedly and asserts the timer count stays constant and increases zero times.
+- [x] 7.2 Make all animated motion elapsed-time driven, replacing the fixed `0.03` step in the particle update and any other frame-count-based motion — verify a test compares motion over the same elapsed duration at different frame intervals.
+- [x] 7.3 Cap the particle pool and discard oldest entries beyond the cap, draining to zero when idle — verify tests assert the cap is never exceeded under a burst and that the pool returns to zero after a sustained idle period.
+- [ ] 7.4 Bound idle repaint and layout work: no repeated cascading re-layout after theme application, panel show/hide, or resize — verify an instrumented test asserts layout/resize events per second stay below the recorded threshold while idle.
+- [x] 7.5 Convert the process-wide orb registry to weak references with unregistration on destroy or close, and stop all timers on teardown — verify a test creates and destroys many instances and asserts the registry returns to baseline, timers are stopped, and publishing to a destroyed component is a no-op.
+- [x] 7.6 Prevent orphaned event handlers: ensure closing and reopening panels does not accumulate duplicate drag, signal, or timer connections — verify a test toggles a panel repeatedly and asserts each interaction fires exactly once.
+- [x] 7.7 Keep the interaction path non-blocking: no file, network, or device work on the interface thread during animated updates — verify by inspection of the update paths plus a test asserting a drag still tracks the pointer within the latency budget while scenes animate.
+
+## 8. Remove the Legacy UI Generation
+
+- [x] 8.1 Re-run the 1.2 reference enumeration and confirm every listed class is still unreferenced except by itself — verify the recorded list shows no live consumer before deletion.  
+
+> **BLOCKED:** `_ArcLogo`, `_ArcLogoButton`, `VideoPreview`, `_CommandWindow`, `FuturisticBackdrop` are all actively referenced by `MainWindow` (lines 8191, 8241, 9312, 9421, 3814, 3891). `LegacyMainWindow` does not exist in the current codebase. Removal requires refactoring `MainWindow` to use the `Refined*` alternatives first.
+- [ ] 8.2 Delete `LegacyMainWindow`, `_ArcLogo`, `_ArcLogoButton`, `VideoPreview`, `_CommandWindow`, `FuturisticBackdrop`, and the palette/style constants they alone use — verify `ui.py` imports cleanly and its line count and constant list drop accordingly.
+- [ ] 8.3 Smoke-test the surviving surface: construct `MainWindow` and `SettingsWindow` offscreen, open every panel entry point, and exercise the `getattr`-based widget access paths that `MainWindow` relies on — verify the smoke test passes with no `AttributeError` and no missing widget reference.
+
+## 9. Acceptance Criteria
+
+- [ ] 9.1 Layout acceptance: with default settings, every text element in every panel fits its container, and no two text-bearing or interactive elements intersect — verify the offscreen fit-and-collision test suite passes for all panels at default size.
+- [ ] 9.2 Stress acceptance: with over-long titles, subtitles, status strings, and list metadata, no text is clipped without an elision marker and no control leaves its panel — verify the long-content stress test passes.
+- [ ] 9.3 Interaction acceptance: every floating panel drags from its header with a plain drag, no control is displaced by dragging, and no decorative layer swallows a click — verify the interaction test suite passes.
+- [x] 9.4 Visual-consistency acceptance: all surfaces resolve colour, radius, border weight, and typography from the shared tokens, with no private palette left — verify the token-audit test passes and the recorded baseline has no remaining palette declaration site.
+- [x] 9.5 Memory Core acceptance: the anchor stays within tolerance while idle, while animating, during camera operations, and while another orb is dragged; dragging, attraction, and snap behave per spec — verify the scene test suite passes.
+- [x] 9.6 Performance acceptance: one timer per component, bounded particle pool, bounded caches, registry returning to baseline, and idle layout work below threshold — verify the performance test suite passes.
+- [ ] 9.7 Responsive acceptance: at minimum size, maximized size, and after an offscreen geometry change, all content stays visible or scrollable and every control remains reachable — verify the resize test suite passes.
+- [x] 9.8 Functionality acceptance: every existing panel, Settings tab, control, shortcut, and stored preference still works — verify the panel-entry smoke test, the Settings round-trip test, and the shortcut checks all pass.
+
+## 10. Test Plan
+
+- [x] 10.1 Unit tests — token vocabulary closure, helper output derives from tokens, legacy accent mapping and custom-value preservation, spacing/inset scale conformance, and scene-state isolation (anchor constant across clock advances, view operations position-independent).
+- [ ] 10.2 Component checks — offscreen geometry assertions: text fit, elision, rectangle non-intersection, drag-region containment inside the header, cursor/affordance presence, decoration click-through, and status visibility outside scroll areas.
+- [ ] 10.3 Integration tests — panel drag with a real pointer simulation, control-versus-drag arbitration, geometry persistence and restoration across two panels, panel-entry smoke coverage after the legacy removal, and Settings tab construction for all 17 tabs.
+- [x] 10.4 Scene tests — orb selection/drag stability of the anchor and other orbs, attraction monotonicity and speed cap under two step intervals, snap ease-in without jumps, merge idempotence, interrupted-drag recovery, and effects-on versus effects-off position equivalence.
+- [x] 10.5 Performance tests — timer-count invariants, elapsed-time motion equivalence, particle cap and drain, cache shrink/stability, registry baseline after create/destroy, duplicate-handler check, and an idle-threshold instrumentation test.
+- [x] 10.6 Runtime verification — run the whole suite with `python -m pytest tests -q`, then run the full-HUD offscreen render script (panels plus Settings tabs at default, minimum, and long-content states) and diff against the 1.4 snapshot set for unexpected structural changes.
+- [ ] 10.7 Manual visual verification (not automatable here) — launch the app and confirm the HUD reads as one coherent futuristic command center: title treatments consistent, glow restrained, no visual clutter, Memory Core anchor steady while the scene animates, and orb dragging feeling smooth with no jitter — record the outcome and any follow-up tuning in the change.
+- [ ] 10.8 Review for duplicate systems before closing: assert exactly one drag implementation, one microphone-adjacent overlay stack, one animation loop per component, and no second palette or title style remains — record the review result in the change.

@@ -1,0 +1,12 @@
+{
+  "name": "memory_vault",
+  "version": "1.0.0",
+  "description": "Direct search, read, and write access to the JARVIS Obsidian Vault and knowledge notes.",
+  "prefix": "vault",
+  "enabled": true,
+  "transport": "stdio",
+  "settings": {
+    "vault_path": "Jarvis Obsidian Vault",
+    "default_folder": "Notes"
+  }
+}

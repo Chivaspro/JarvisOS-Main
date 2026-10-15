@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# J.A.R.V.I.S. OS — Python Runtime Dependencies
+# Install into the isolated virtual environment:
+#   python setup_jarvis.py   →  [2] Python packages
+#   or manually:  .venv\Scripts\pip install -r requirements.txt
+#
+# All packages are optional at the module level — a missing engine is reported,
+# never crashes the assistant. Windows-only packages are gated with sys_platform.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── UI ────────────────────────────────────────────────────────────────────────
+PyQt6
+PyQt6-WebEngine
+
+# ── Audio & Voice ─────────────────────────────────────────────────────────────
+sounddevice
+miniaudio
+pyttsx3
+fish-audio-sdk
+piper-tts
+openwakeword
+onnxruntime
+
+# ── Vision ────────────────────────────────────────────────────────────────────
+opencv-python
+ultralytics
+mss
+pillow
+
+# ── AI / Web ──────────────────────────────────────────────────────────────────
+# google-genai is the engine behind Gemini text, the Live voice session, UI-TARS
+# vision and the Settings ▸ API key test. Without it the whole Gemini side
+# reports "unavailable", so it ships with the core install (setup_jarvis.py [X]
+# repairs it on demand as well).
+google-genai
+requests
+ddgs>=9.0.0
+youtube-transcript-api
+
+# ── Browser Automation ────────────────────────────────────────────────────────
+playwright
+pywinauto
+pyautogui
+
+# ── Data & Documents ──────────────────────────────────────────────────────────
+numpy
+python-pptx
+
+# ── API / Backend ─────────────────────────────────────────────────────────────
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+python-multipart
+
+# ── System Utilities ──────────────────────────────────────────────────────────
+psutil
+send2trash
+cryptography
+qrcode[pil]
+
+# ── Windows-only ──────────────────────────────────────────────────────────────
+pywin32; sys_platform == "win32"
+wmi; sys_platform == "win32"
+win10toast; sys_platform == "win32"

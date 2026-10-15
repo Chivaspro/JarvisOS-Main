@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- The generic mark for any MCP server: a node/rack with linked interfaces.
+       Used whenever a server has no recognised provider icon. -->
+  <path fill="currentColor" d="M4 3h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm1 2v3h14V5Zm-1 9h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Zm1 2v3h14v-3Z"/>
+  <circle fill="currentColor" cx="6.4" cy="6.5" r="1"/>
+  <circle fill="currentColor" cx="6.4" cy="16.5" r="1"/>
+</svg>

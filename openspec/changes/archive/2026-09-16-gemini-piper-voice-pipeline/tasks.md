@@ -1,0 +1,60 @@
+## 1. Piper ONNX execution (`core/tts.py`)
+
+- [x] 1.1 Add `onnx_execution_provider` support to `OnnxTTSEngine.__init__` plus constants/labels for `cpu` | `gpu` | `auto`; verify an unknown or missing value normalises to `cpu` (unit test).
+- [x] 1.2 Add `resolve_onnx_providers(mode)` returning the resolved provider list, the active provider label and a fallback reason, built from `onnxruntime.get_available_providers()` (`gpu`/`auto` prefer CUDA → TensorRT → DirectML → ROCm → CoreML, `cpu` is CPU-only); verify with a stubbed `get_available_providers()` that CPU-only hosts fall back with a reason (unit test).
+- [x] 1.3 Create the ONNX Runtime session explicitly in `OnnxTTSEngine._load()` (`InferenceSession` + `PiperConfig.from_dict` + `PiperVoice(config=..., session=...)`), retry once with CPU-only providers when a GPU provider fails, and fall back to `PiperVoice.load(...)` if that construction fails; verify the model still loads at `config/voices/jarvis-high.onnx` on this machine (smoke script).
+- [x] 1.4 Log `[PIPER] Model loaded: <file>` and `[PIPER] Execution provider: <provider>` once per load, print the fallback reason when GPU is requested but unavailable, and expose the active provider through the voice status; verify by grepping the captured output of the smoke script.
+- [x] 1.5 Refactor synthesis into `synthesize(text, cancel=None)` yielding `(float32 array, sample_rate)` with the cancel event checked before each chunk, and make `speak(text, cancel=None)` play those chunks so existing callers are unchanged; verify existing ONNX/local behaviour with the test suite.
+- [x] 1.6 Include `onnx_execution_provider` in `_tts_cache_key` and pass it from `create_tts_player`; verify changing the provider selects a different cached player while an unchanged provider reuses the loaded model (unit test).
+
+## 2. Piper speech service and modes (`core/hybrid_voice.py`)
+
+- [x] 2.1 Add `VoiceMode.GEMINI_PIPER = "gemini_piper"` alongside `GEMINI` and `LOCAL`; verify all three are constructible and legacy `hybrid` still maps for backward compatibility (unit test).
+- [x] 2.2 Add `normalize_voice_output_mode(value, cfg=None)`, the one-time `voice_pipeline_migrated` marker and the mapping `hybrid` → `gemini_piper`, missing → `gemini_piper`, `gemini` → `gemini_piper` only before the marker, `local` → `local`; verify every branch, including that a `gemini` value with the marker present stays `gemini` (unit tests).
+- [x] 2.3 Accept the three modes in `_validate_voice_settings` (and keep rejecting unknown values); verify an unknown mode is still rejected with a clear message (unit test).
+- [x] 2.4 Implement `split_speech_chunks(text, first=..., max_len=...)` for sentence/phrase chunking (terminators `. ! ? … ;` and newline, comma/space hard split, minimum chunk length, remainder returned) and a streaming feeder that submits only the new suffix of cumulative transcript fragments; verify chunk boundaries and the no-duplication guard for incremental and cumulative fragment sequences (unit tests).
+- [x] 2.5 Implement `PiperSpeechService` with one long-lived bounded `queue.Queue` and one worker thread created on first use (`get()` / `reset()` singleton, matching `HybridVoiceSystem`), `feed(text)` / `flush()` / `speak_chunks()`, `warmup_async()`, `interrupt()`, `is_speaking()` and a `status()` snapshot; verify the thread is created exactly once across many replies and that the queue capacity is enforced (unit tests).
+- [x] 2.6 Make the worker resolve the cached `TTSPlayer` inside the worker thread (never on the caller's thread), log `[PIPER]` synthesis/playback transitions and a single dropped-chunk warning when the queue is full, and swallow synthesis errors into a log line; verify by driving the service with a fake player and asserting call counts, dropped-chunk logging and that no exception escapes (unit tests).
+- [x] 2.7 Implement interruption: bump an epoch, drain the queue, set the per-engine cancel event and stop playback so the current chunk and every queued chunk of the interrupted turn are discarded; verify no chunk from the interrupted epoch is played afterwards (unit test).
+- [x] 2.8 Keep `OnnxCachedEngine` / `PlaybackManager` / `HybridVoiceSystem` importable and behaviourally unchanged for existing callers and tests; verify `tests/hybrid_voice/test_hybrid_voice.py` still passes.
+
+## 3. Runtime wiring (`main.py`)
+
+- [x] 3.1 Resolve the mode once through `normalize_voice_output_mode` and use that single value everywhere the four inline `voice_output_mode == "local"` comparisons live (`_receive_audio`, `_play_audio`, `_send_startup_briefing`, `prewarm_voice`); verify by grepping that no inline mode comparison remains in `main.py`.
+- [x] 3.2 Replace the `HybridVoiceSystem` start-up block in `JarvisLive.__init__` so no second `sd.InputStream` (MicBus) is opened in any mode, and instead start the shared `PiperSpeechService` prewarm when the mode is `gemini_piper`; verify no `MicBus.start` path is reachable from `JarvisLive` (code inspection + grep).
+- [x] 3.3 Move the mode check to the top of `_play_audio()` so that in `gemini_piper` and `local` modes the Gemini speaker stream is never opened and `audio_in_queue` is drained/discarded; verify one suppression log line and no speaker stream in those modes (code inspection + unit test on the mode gate).
+- [x] 3.4 Feed Gemini's streaming `output_transcription` into `PiperSpeechService.feed()` in `gemini_piper` mode (via the cumulative-transcript guard) and call `flush()` on `turn_complete`; keep the existing `ui.write_log` / Brain `record_reply` / dashboard behaviour intact; verify with a stubbed service that incremental and cumulative fragments produce the transcript exactly once (unit test).
+- [x] 3.5 Keep the `local` path (`speak_local`) working unchanged in `local` mode and keep `gemini` mode playing Gemini audio; verify the mode-gate unit test covers all three modes.
+- [x] 3.6 Extend `interrupt()` to stop Piper and clear its queue (and keep the existing Gemini queue drain / `_local_tts_stop` behaviour); verify `interrupt()` empties the Piper queue and stops playback in a unit test.
+- [x] 3.7 Prewarm Piper in the background without blocking the interface in `prewarm_voice()` for `gemini_piper` mode; verify the call returns immediately and the warm-up happens on a non-Qt, non-asyncio thread (code inspection + timed unit test on the service).
+- [x] 3.8 Apply a mode change on `_on_voice_change` by stopping Piper when leaving `gemini_piper` and prewarming when entering it, and report the active mode/voice/provider in one log line; verify the log line and the stop/prewarm calls with a stubbed service (unit test).
+- [x] 3.9 Shut the Piper worker down cleanly with the existing shutdown path (`HybridVoiceSystem.reset()` in `main.py`) so no thread or device is left behind; verify `reset()` joins/forgets the worker and a second `get()` creates a fresh one (unit test).
+
+## 4. Settings and interface (`ui_settings.py`, `ui.py`)
+
+- [x] 4.1 Replace the two-entry voice output combo with the three modes labelled `Gemini Native Audio`, `Gemini → Piper ONNX` and `Local Piper Only` (userData `gemini` / `gemini_piper` / `local`), preselecting the resolved mode via `normalize_voice_output_mode`; verify the stored mode round-trips through `_collect()` (unit test on the collector if available, otherwise code inspection + manual check).
+- [x] 4.2 Add the Piper voice row (existing `list_onnx_voices()` picker defaulting to JARVIS High / `jarvis-high`), the Execution row (`CPU` / `GPU` / `Auto` → `cpu` / `gpu` / `auto`) and persist them as `onnx_voice_model`, `onnx_voice_config` and `onnx_execution_provider`; verify a save/reload round-trip preserves all three.
+- [x] 4.3 Add **TEST PIPER VOICE**, which loads the selected Piper voice with the selected execution provider on a background thread and speaks a short line without changing the active mode; verify it calls the Piper path (not the Gemini path) and reports the provider (code inspection + test on the underlying call).
+- [x] 4.4 Fix `_save_default_voice()` so it persists the currently selected mode, Piper voice and execution provider without ever writing `local` unless the user selected it, keeps the atomic/guarded write and cache invalidation, and reports the saved arrangement; verify with a unit test that saving in `gemini_piper` leaves `voice_output_mode == "gemini_piper"` (regression test for the reported bug).
+- [x] 4.5 Add `voice_output_mode`, `onnx_execution_provider` and the Piper voice defaults to `ui_settings.DEFAULTS` and `reset_defaults()`, and keep every existing key untouched; verify an old config file loads with the new keys filled in and no existing value lost.
+- [x] 4.6 Add HUD state aliases in `ui.py` for the Piper states (`PIPER SYNTHESIZING` → THINKING, `PIPER PLAYING` → SPEAKING, `PIPER READY`/`MIC LISTENING`/`GEMINI LIVE` → LISTENING) so the Piper state surface needs no visual change, and include the provider in the applied-settings log line; verify `UIReactor.set_state` accepts each new label without falling back to IDLE (unit test).
+- [x] 4.7 Confirm the Voice tab still renders in the existing HUD styling with no unrelated layout change; verify by opening Settings → VOICE and comparing against the pre-change screenshot/behaviour.
+
+## 5. Tests
+
+- [x] 5.1 Add `tests/hybrid_voice/test_piper_pipeline.py` covering provider resolution/fallback, mode normalisation + one-time migration, chunker/streaming feeder, bounded queue with a single worker, dropped-chunk warning, interruption/cancel, warm-up idempotence and `reset()`; verify `python -m pytest tests/hybrid_voice -q` passes.
+- [x] 5.2 Add regression tests that `_save_default_voice` never forces `local` and that the three modes are preserved by save/load; verify they fail against the pre-fix behaviour (documented) and pass after it.
+- [x] 5.3 Add a mode-gate test proving `gemini_piper` discards Gemini audio and never opens the Gemini output stream, `gemini` leaves it untouched and `local` keeps its existing drain behaviour; verify the test asserts the mode gate rather than a live device.
+
+## 6. Verification and acceptance criteria
+
+- [ ] 6.1 Acceptance: with `voice_output_mode = "gemini_piper"`, a spoken question produces exactly one audible reply, rendered by `jarvis-high.onnx`, with no Gemini native audio.
+- [x] 6.2 Acceptance: the Piper model is loaded exactly once per arrangement — no reload between sentences or replies (`[PIPER] Model loaded` appears once per arrangement in the log).
+- [x] 6.3 Acceptance: SAVE AS DEFAULT VOICE with Gemini → Piper ONNX selected stores `gemini_piper` (plus the Piper voice and execution provider) and never writes `local`.
+- [x] 6.4 Acceptance: execution provider `cpu` works; `gpu` uses a GPU provider when present and otherwise logs the reason and continues on CPU; no crash and no GPU requirement.
+- [x] 6.5 Acceptance: user speech while Piper is speaking stops playback, clears the queue and resumes listening, with no stale queued speech afterwards.
+- [x] 6.6 Acceptance: one microphone stream, one Gemini Live session and one playback path are active in `gemini_piper` mode (verified by inspection and by the absence of a second `InputStream`).
+- [x] 6.7 Acceptance: `gemini` and `local` modes behave exactly as before the change, and all previously configured keys (engines, voices, keys, features) survive untouched.
+- [x] 6.8 Acceptance: start-up is not blocked by Piper (interface usable while the voice warms up in the background) and Piper failure never prevents start-up.
+- [x] 6.9 Audit the resulting code for duplicate audio output, duplicate Gemini sessions, duplicate microphone capture, accidental `local` mode switching, per-response Piper reloads and UI-thread blocking; report findings explicitly.
+- [x] 6.10 Run the compile/type check available in this project (`python -m py_compile` for the touched modules, plus `python -m pytest tests -q`) and report exactly which checks passed and which could not be verified in this environment (GPU provider, live Gemini Live conversation, audible playback).

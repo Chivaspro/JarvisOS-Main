@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>J.A.R.V.I.S. HoloGlobe</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:
+    radial-gradient(120% 90% at 50% 10%,#06202b 0%,#031016 55%,#01070a 100%);
+    color:#d8f4ff;font:13px/1.45 "Segoe UI",system-ui,sans-serif}
+  #stage{position:absolute;inset:0}
+  .hud{position:absolute;pointer-events:none}
+  #title{top:14px;left:18px;font:800 12px "Segoe UI",sans-serif;letter-spacing:.22em;
+         text-transform:uppercase;color:#3fd0e0;text-shadow:0 0 12px rgba(63,208,224,.45)}
+  #stats{top:32px;left:18px;font:11.5px ui-monospace,Consolas,monospace;color:#5f93a6}
+  #legend{bottom:14px;left:18px;font:11.5px ui-monospace,Consolas,monospace;color:#5f93a6;
+          max-width:46%;white-space:pre-wrap}
+  #hint{bottom:14px;right:18px;font:11px ui-monospace,Consolas,monospace;color:#3d6273;
+        text-align:right}
+  #empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+         color:#4c6b78;font-size:13px;letter-spacing:.08em}
+  .vignette{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(120% 100% at 50% 50%,transparent 55%,rgba(0,0,0,.55) 100%)}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div class="vignette"></div>
+<div class="hud" id="title">J.A.R.V.I.S. &nbsp;//&nbsp; HoloGlobe</div>
+<div class="hud" id="stats">initialising renderer…</div>
+<div class="hud" id="legend"></div>
+<div class="hud" id="hint">drag to rotate · scroll to zoom · click a pin to focus</div>
+<div id="empty">HoloGlobe ready — waiting for a place.</div>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script src="three.min.js"></script>
+<script>
+"use strict";
+(function () {
+  var API = {};
+  window.jarvisGlobe = API;
+
+  var stage = document.getElementById("stage");
+  var stats = document.getElementById("stats");
+  var legend = document.getElementById("legend");
+  var empty = document.getElementById("empty");
+
+  if (typeof THREE === "undefined") {
+    stats.textContent = "three.js is missing from assets/globe — the globe cannot render.";
+    return;
+  }
+
+  var renderer, scene, camera, earth, glow, markerGroup, arcGroup;
+  var spin = true, spinRate = 0.035, ready = false;
+  var markers = [];
+  var bridge = null;
+
+  // ── python ↔ js ────────────────────────────────────────────────────────────
+  function emit(kind, payload) {
+    var text = JSON.stringify(payload || {});
+    if (bridge && bridge.notify) {
+      try { bridge.notify(kind, text); return; } catch (e) { /* fall through */ }
+    }
+    // No channel (a plain browser): the title is the outbound wire, and the
+    // Python side reads it from titleChanged.
+    document.title = "jarvis:" + kind + ":" + text;
+  }
+
+  function connect() {
+    if (typeof QWebChannel === "undefined" || typeof qt === "undefined") {
+      emit("ready", {});
+      return;
+    }
+    new QWebChannel(qt.webChannelTransport, function (channel) {
+      bridge = channel.objects.globeBridge || null;
+      emit("ready", {});
+    });
+  }
+
+  // ── scene ──────────────────────────────────────────────────────────────────
+  function build() {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(stage.clientWidth, stage.clientHeight);
+    stage.appendChild(renderer.domElement);
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(38, stage.clientWidth / stage.clientHeight,
+                                         0.1, 2000);
+    camera.position.set(0, 1.1, 3.4);
+
+    scene.add(new THREE.AmbientLight(0x2a4a58, 1.05));
+    var key = new THREE.DirectionalLight(0x9fe8f5, 0.45);
+    key.position.set(-4, 2, 3);
+    scene.add(key);
+
+    var loader = new THREE.TextureLoader();
+    // three.js r13x spells colour space as ``encoding``; newer builds use
+    // ``colorSpace``. Both are set when present so the texture looks right on
+    // either version rather than washed out on one of them.
+    if (THREE.SRGBColorSpace) { renderer.outputColorSpace = THREE.SRGBColorSpace; }
+    else if (THREE.sRGBEncoding !== undefined) { renderer.outputEncoding = THREE.sRGBEncoding; }
+    loader.load("earth-night-2k.jpg", function (texture) {
+      if (THREE.SRGBColorSpace) { texture.colorSpace = THREE.SRGBColorSpace; }
+      else if (THREE.sRGBEncoding !== undefined) { texture.encoding = THREE.sRGBEncoding; }
+      var material = new THREE.MeshPhongMaterial({
+        map: texture, emissive: new THREE.Color(0x224455), emissiveIntensity: 0.55,
+        specular: new THREE.Color(0x113344), shininess: 12
+      });
+      earth = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 96), material);
+      scene.add(earth);
+      // A faint wireframe over the surface: the holographic read.
+      var grid = new THREE.Mesh(
+        new THREE.SphereGeometry(1.002, 36, 24),
+        new THREE.MeshBasicMaterial({ color: 0x2f8ea3, wireframe: true,
+                                      transparent: true, opacity: 0.07 }));
+      earth.add(grid);
+      markReady();
+    }, undefined, function () {
+      // No texture is still a working globe: a plain sphere keeps the pins usable.
+      earth = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64),
+        new THREE.MeshPhongMaterial({ color: 0x0b2530, emissive: 0x123844,
+                                      emissiveIntensity: 0.6 }));
+      scene.add(earth);
+      stats.textContent = "earth-night-2k.jpg is missing — showing a plain sphere.";
+      markReady();
+    });
+
+    glow = new THREE.Mesh(
+      new THREE.SphereGeometry(1.09, 64, 64),
+      new THREE.MeshBasicMaterial({ color: 0x39c6db, transparent: true,
+                                    opacity: 0.075, side: THREE.BackSide }));
+    scene.add(glow);
+
+    var stars = new THREE.BufferGeometry();
+    var positions = new Float32Array(1400 * 3);
+    for (var i = 0; i < 1400; i++) {
+      var r = 40 + Math.random() * 60, theta = Math.random() * Math.PI * 2;
+      var phi = Math.acos(2 * Math.random() - 1);
+      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = r * Math.cos(phi);
+      positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    }
+    stars.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    scene.add(new THREE.Points(stars, new THREE.PointsMaterial({
+      color: 0x88cfe0, size: 0.35, transparent: true, opacity: 0.55 })));
+
+    markerGroup = new THREE.Group();
+    arcGroup = new THREE.Group();
+    scene.add(markerGroup);
+    scene.add(arcGroup);
+
+    window.addEventListener("resize", resize);
+    renderer.domElement.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    renderer.domElement.addEventListener("wheel", onWheel, { passive: true });
+    animate();
+  }
+
+  function markReady() {
+    ready = true;
+    empty.style.display = "none";
+    stats.textContent = "earth online · 0 markers";
+    connect();
+  }
+
+  // ── interaction ────────────────────────────────────────────────────────────
+  var dragging = false, lastX = 0, lastY = 0, moved = 0;
+
+  function onDown(event) { dragging = true; moved = 0; lastX = event.clientX; lastY = event.clientY; }
+  function onUp(event) {
+    // A click (rather than a drag) selects the pin under the pointer.
+    if (dragging && moved < 4) { pick(event); }
+    dragging = false;
+  }
+  function onMove(event) {
+    if (!dragging || !earth) { return; }
+    var dx = event.clientX - lastX, dy = event.clientY - lastY;
+    lastX = event.clientX; lastY = event.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    earth.rotation.y += dx * 0.005;
+    earth.rotation.x = Math.max(-1.2, Math.min(1.2, earth.rotation.x + dy * 0.004));
+    markerGroup.rotation.copy(earth.rotation);
+    arcGroup.rotation.copy(earth.rotation);
+  }
+  function onWheel(event) {
+    camera.position.z = Math.max(1.6,
+      Math.min(9, camera.position.z + event.deltaY * 0.0016));
+  }
+  function pick(event) {
+    if (!event || !markers.length) { return; }
+    var rect = renderer.domElement.getBoundingClientRect();
+    var pointer = new THREE.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    var raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(pointer, camera);
+    var hits = raycaster.intersectObjects(markers, true);
+    if (hits.length) {
+      var place = hits[0].object.userData.place;
+      emit("marker", place);
+      focus(place.latitude, place.longitude, place.name);
+    }
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    if (earth) {
+      if (spin && !dragging) {
+        earth.rotation.y += spinRate * 0.01;
+        markerGroup.rotation.copy(earth.rotation);
+        arcGroup.rotation.copy(earth.rotation);
+      }
+      glow.scale.setScalar(1 + 0.0025 * Math.sin(Date.now() * 0.0015));
+    }
+    if (renderer) { renderer.render(scene, camera); }
+  }
+
+  function resize() {
+    if (!renderer) { return; }
+    camera.aspect = stage.clientWidth / Math.max(1, stage.clientHeight);
+    camera.updateProjectionMatrix();
+    renderer.setSize(stage.clientWidth, stage.clientHeight);
+  }
+
+  // ── places ─────────────────────────────────────────────────────────────────
+  function toVector(latitude, longitude, radius) {
+    var phi = (90 - latitude) * Math.PI / 180;
+    var theta = (longitude + 180) * Math.PI / 180;
+    var r = radius || 1.012;
+    return new THREE.Vector3(
+      -r * Math.sin(phi) * Math.cos(theta),
+       r * Math.cos(phi),
+       r * Math.sin(phi) * Math.sin(theta));
+  }
+
+  function makeLabel(text) {
+    var canvas = document.createElement("canvas");
+    var context = canvas.getContext("2d");
+    canvas.width = 512; canvas.height = 96;
+    context.font = "600 38px Segoe UI, sans-serif";
+    context.fillStyle = "rgba(63,208,224,0.95)";
+    context.fillText(text.slice(0, 22), 8, 60);
+    var texture = new THREE.CanvasTexture(canvas);
+    var sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: texture, transparent: true, depthWrite: false, opacity: 0.92 }));
+    sprite.scale.set(0.62, 0.12, 1);
+    return sprite;
+  }
+
+  function addMarker(place) {
+    if (!ready || !earth) { return; }
+    var position = toVector(place.latitude, place.longitude);
+    var pin = new THREE.Mesh(new THREE.SphereGeometry(0.014, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0x6ff0ff }));
+    pin.position.copy(position);
+    pin.userData.place = place;
+    markerGroup.add(pin);
+
+    var ring = new THREE.Mesh(new THREE.RingGeometry(0.022, 0.032, 24),
+      new THREE.MeshBasicMaterial({ color: 0x3fd0e0, transparent: true,
+        opacity: 0.75, side: THREE.DoubleSide }));
+    ring.position.copy(position);
+    ring.lookAt(new THREE.Vector3(0, 0, 0));
+    ring.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(1, 0, 0), Math.PI / 2));
+    ring.userData.place = place;
+    markerGroup.add(ring);
+
+    var label = makeLabel(place.name || "place");
+    label.position.copy(position.clone().multiplyScalar(1.09));
+    markerGroup.add(label);
+
+    markers.push(pin, ring);
+  }
+
+  function drawArcs(places) {
+    while (arcGroup.children.length) {
+      var child = arcGroup.children.pop();
+      if (child.geometry) { child.geometry.dispose(); }
+      if (child.material) { child.material.dispose(); }
+    }
+    for (var i = 0; i + 1 < places.length; i++) {
+      var start = toVector(places[i].latitude, places[i].longitude, 1.02);
+      var end = toVector(places[i + 1].latitude, places[i + 1].longitude, 1.02);
+      var mid = start.clone().add(end).multiplyScalar(0.5).normalize()
+        .multiplyScalar(1 + start.distanceTo(end) * 0.32);
+      var curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+      var geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(48));
+      arcGroup.add(new THREE.Line(geometry, new THREE.LineBasicMaterial({
+        color: 0x3fd0e0, transparent: true, opacity: 0.55 })));
+    }
+  }
+
+  function refreshStats() {
+    var names = markers.map(function (mesh) { return mesh.userData.place; })
+      .filter(function (place, index, all) {
+        return all.findIndex(function (other) { return other.name === place.name; }) === index;
+      });
+    stats.textContent = "earth online · " + names.length + " marker(s)"
+      + (spin ? " · rotating" : " · held");
+    legend.textContent = names.slice(0, 8).map(function (place) {
+      return "· " + (place.name || "place")
+        + (place.country ? "  (" + place.country + ")" : "")
+        + "  " + place.latitude.toFixed(2) + ", " + place.longitude.toFixed(2);
+    }).join("\n");
+    empty.style.display = names.length ? "none" : "flex";
+  }
+
+  // ── the API Python calls ───────────────────────────────────────────────────
+  API.setPlaces = function (payload) {
+    var places = payload || [];
+    if (typeof places === "string") { places = JSON.parse(places); }
+    while (markerGroup.children.length) {
+      var child = markerGroup.children.pop();
+      if (child.geometry) { child.geometry.dispose(); }
+      if (child.material) { child.material.dispose(); }
+    }
+    markers = [];
+    places.forEach(addMarker);
+    drawArcs(places);
+    refreshStats();
+    if (places.length === 1) { API.focus(places[0].latitude, places[0].longitude,
+                                         places[0].name); }
+    emit("places", { count: places.length });
+    return places.length;
+  };
+
+  API.focus = function (latitude, longitude, name) {
+    if (!earth || latitude === undefined || longitude === undefined) { return false; }
+    // Rotate the globe so the place faces the camera, with a short ease.
+    var targetY = -(longitude + 180) * Math.PI / 180 + Math.PI / 2;
+    var targetX = latitude * Math.PI / 180;
+    var startY = earth.rotation.y, startX = earth.rotation.x, step = 0;
+    spin = false;
+    function ease() {
+      step++;
+      var t = Math.min(1, step / 28);
+      var eased = t * t * (3 - 2 * t);
+      earth.rotation.y = startY + (targetY - startY) * eased;
+      earth.rotation.x = startX + (targetX - startX) * eased;
+      markerGroup.rotation.copy(earth.rotation);
+      arcGroup.rotation.copy(earth.rotation);
+      if (t < 1) { requestAnimationFrame(ease); } else { refreshStats(); }
+    }
+    ease();
+    stats.textContent = "focused: " + (name || (latitude + ", " + longitude));
+    emit("focus", { name: name || "", latitude: latitude, longitude: longitude });
+    return true;
+  };
+
+  API.clear = function () { return API.setPlaces([]); };
+  API.setSpin = function (value) { spin = !!value; refreshStats(); return spin; };
+  API.setLegend = function (text) { legend.textContent = String(text || ""); };
+  API.ready = function () { return ready; };
+  API.count = function () { return markers.length; };
+
+  build();
+})();
+</script>
+</body>
+</html>

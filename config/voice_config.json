@@ -1,0 +1,13 @@
+{
+    "engine": "onnx",
+    "voice": "jarvis",
+    "model": "config/voices/jarvis-high.onnx",
+    "config": "config/voices/jarvis-high.json",
+    "speaker": "default",
+    "speed": 1.0,
+    "pitch": 0.0,
+    "volume": 1.0,
+    "sample_rate": 22050,
+    "output_format": "wav",
+    "latency": "normal"
+}

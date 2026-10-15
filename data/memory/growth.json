@@ -1,0 +1,15 @@
+{
+  "writes": 33,
+  "reinforcements": 5,
+  "backends": {
+    "local": 22,
+    "fake": 10,
+    "obsidian": 1
+  },
+  "categories": {
+    "PROJECTS": 11,
+    "CONVERSATIONS": 1
+  },
+  "started": 1791493772.6125627,
+  "updated": 1791610514.8840556
+}

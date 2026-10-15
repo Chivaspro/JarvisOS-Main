@@ -1,0 +1,37 @@
+[project]
+name = "ui-tars"
+version = "0.1.4"
+description = "Parsing LLM-generated GUI action instructions, automatically generating pyautogui scripts, and supporting coordinate conversion and smart image resizing."
+readme = "README.md"
+authors = [
+    { name = "liangshihao.0828", email = "liangshihao.0828@bytedance.com" },
+    { name = "jinxin001", email = "jinxin001@bytedance.com" }
+]
+requires-python = ">=3.10,<4.0"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.envs.test.scripts]
+test = "python -m unittest discover tests '*_test.py'"
+publish = "python -m unittest discover tests '*_test.py' && uv build && uv publish"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+include = '\.pyi?$'
+
+[tool.hatch.build]
+include = [
+    "ui_tars/**/*.py",
+    "!ui_tars/**/tests/*.py",
+    "!ui_tars/**/tests.py"
+]
+
+[tool.uv]
+dev-dependencies = [
+    "matplotlib>=3.10.3",
+    "pillow>=11.2.1",
+]

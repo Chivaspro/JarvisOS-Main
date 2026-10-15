@@ -1,0 +1,74 @@
+# ── Secrets — never commit ───────────────────────────────────────────────
+config/api_keys.json
+config/certs/
+.env
+*.pem
+*.key
+
+# ── Node (Agent TARS runtime) ────────────────────────────────────────────
+# node_modules is installed from package.json/package-lock.json; the lockfile
+# itself is committed so the pinned Agent TARS runtime is reproducible.
+node_modules/
+npm-debug.log*
+data/agent_tars_workspace/
+
+# ── Python ───────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.pytest_tmp/
+
+# ── Runtime state ────────────────────────────────────────────────────────
+memory/*.json
+*.log
+config/backups/
+config/runtime_state.json
+config/*.tmp
+*.db
+*.db-wal
+*.db-shm
+
+# ── Generated / scratch (cleaned up: keep them from coming back) ───────────
+# Browser automation leftovers: the Chrome profile an old adapter created and
+# its one-file sibling. Nothing in the code references either path.
+data/browser_profile/
+gmail_persistent_context_fix/
+# Image-research output (actions/image_research.py recreates the folder).
+researched_images/
+# Diagnostics / runtime scratch dirs and the legacy root log dir.
+_diag_out/
+runtime/
+logs/
+jarvis_startup_error.log
+dist/
+build/
+
+# ── Runtime scratch: logs, backups, browser-automation scratch, locks ──────
+# All regenerated on demand. data/models/ is NOT ignored (bundled vision model).
+data/logs/
+config/backups/
+data/automation/
+data/runtime/
+data/joptimizer/
+data/mcp/
+
+# ── Other coding agents' config (not used by J.A.R.V.I.S.) ─────────────────
+.cline/
+.clinerules/
+.kilo/
+.kilocode/
+.opencode/
+.agents/
+.claude/
+
+# ── Editor / OS ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.bak
+CHANGELOG_STAGE1.md

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- A layered prism with an open "C" aperture: Composio connects many apps
+       through one surface, so the mark is a single solid shape with one gap. -->
+  <path fill="currentColor" d="M12 1.6 21.4 7v10L12 22.4 2.6 17V7Zm0 2.34L4.6 8.17v7.66L12 20.06l7.4-4.23V8.17Z"/>
+  <path fill="currentColor" d="M15.9 8.4a4.6 4.6 0 1 0 0 7.2l-1.5-1.5a2.6 2.6 0 1 1 0-4.2Z"/>
+  <circle fill="currentColor" cx="12" cy="12" r="1.5"/>
+</svg>

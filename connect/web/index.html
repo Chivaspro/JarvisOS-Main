@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JarvisOS Connect</title>
+<style>
+  :root{
+    --accent:#3fd0e0; --accent-deep:#0f7c93; --bg:#050d12; --panel:#0a1a22;
+    --card:#0d2129; --line:#16323d; --text:#d8f4ff; --mid:#7fa6b4; --dim:#4c6b78;
+    --warn:#f0c070; --bad:#e07070; --good:#5fd39a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(120% 80% at 50% 0%,#0a2029 0%,var(--bg) 60%);
+       color:var(--text);font:15px/1.5 "Segoe UI",system-ui,sans-serif;min-height:100vh}
+  header{padding:20px 18px 12px;border-bottom:1px solid var(--line);display:flex;
+         align-items:baseline;gap:12px;flex-wrap:wrap}
+  h1{margin:0;font:800 17px "Segoe UI",sans-serif;letter-spacing:.14em;
+     text-transform:uppercase;color:var(--accent)}
+  .sub{color:var(--mid);font-size:12.5px}
+  main{padding:16px 18px 40px;max-width:820px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:16px;margin:0 0 14px}
+  .card h2{margin:0 0 10px;font:700 12px "Segoe UI",sans-serif;letter-spacing:.16em;
+           text-transform:uppercase;color:var(--mid)}
+  label{display:block;font-size:12.5px;color:var(--mid);margin:10px 0 4px}
+  input,select,textarea{width:100%;background:#08161c;border:1px solid var(--line);
+        border-radius:9px;color:var(--text);padding:10px 12px;font:inherit}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent-deep)}
+  button{background:linear-gradient(180deg,#0d3742,#0a2831);border:1px solid var(--accent-deep);
+         color:var(--text);border-radius:9px;padding:10px 14px;font:600 13.5px inherit;
+         letter-spacing:.04em;cursor:pointer}
+  button:hover{border-color:var(--accent);color:#eafcff}
+  button.ghost{background:transparent;border-color:var(--line);color:var(--mid)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .pill{font:700 10px "Segoe UI",sans-serif;letter-spacing:.12em;text-transform:uppercase;
+        padding:4px 9px;border-radius:999px;background:#0b232c;color:var(--mid);
+        border:1px solid var(--line)}
+  .pill.ok{color:var(--good);border-color:#1c4b39}
+  .pill.bad{color:var(--bad);border-color:#4b2020}
+  .pill.warn{color:var(--warn);border-color:#4b3d1c}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .cmd{background:#0b1e26;border:1px solid var(--line);border-radius:11px;padding:12px}
+  .cmd b{display:block;font-size:13.5px;letter-spacing:.03em}
+  .cmd span{display:block;color:var(--mid);font-size:12.5px;margin:5px 0 9px}
+  #log{margin:0;padding:0;list-style:none;font:12.5px/1.6 ui-monospace,Consolas,monospace}
+  #log li{border-bottom:1px solid #10242c;padding:5px 0;color:var(--mid);word-break:break-word}
+  #log li.ok{color:var(--good)} #log li.bad{color:var(--bad)}
+  img.shot{width:100%;border-radius:10px;border:1px solid var(--line);margin-top:10px}
+  .hidden{display:none}
+  footer{color:var(--dim);font-size:12px;padding:0 18px 30px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>JarvisOS Connect</h1>
+  <span class="sub" id="host-line">checking this desktop…</span>
+  <span class="pill" id="state-pill">offline</span>
+</header>
+
+<main>
+  <section class="card" id="pair-card">
+    <h2>Pair this device</h2>
+    <p class="sub" id="pair-hint">Read the six-digit code off the desktop HUD, or ask
+      J.A.R.V.I.S. for it, then enter it below.</p>
+    <div class="row">
+      <div style="flex:1 1 150px"><label for="code">Pairing code</label>
+        <input id="code" inputmode="numeric" autocomplete="one-time-code"
+               placeholder="000000" maxlength="64"></div>
+      <div style="flex:1 1 150px"><label for="name">Device name</label>
+        <input id="name" placeholder="My phone"></div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button id="pair-btn">Pair</button>
+      <span class="sub" id="pair-status"></span>
+    </div>
+  </section>
+
+  <section class="card hidden" id="main-card">
+    <h2>This desktop</h2>
+    <div class="row"><span class="pill" id="link-pill">linked</span>
+      <span class="sub" id="device-line"></span>
+      <button class="ghost" id="unlink-btn" style="margin-left:auto">Forget token</button></div>
+    <div class="grid" id="command-grid" style="margin-top:14px"></div>
+    <div id="ask-box" class="hidden" style="margin-top:12px">
+      <label for="ask-text">Your question</label>
+      <textarea id="ask-text" rows="2" placeholder="What is the machine doing?"></textarea>
+      <div class="row" style="margin-top:10px"><button id="ask-send">Ask</button></div>
+    </div>
+    <div id="shot-box" class="hidden"></div>
+  </section>
+
+  <section class="card"><h2>Activity</h2><ul id="log"></ul></section>
+</main>
+
+<footer>Everything stays on this network. The desktop decides what a paired device
+  may do — and asks for confirmation before anything it cannot undo.</footer>
+
+<script>
+(function () {
+  "use strict";
+  var TOKEN_KEY = "jarvis-connect-token";
+  var DEVICE_KEY = "jarvis-connect-device";
+  var log = document.getElementById("log");
+  var statePill = document.getElementById("state-pill");
+  var hostLine = document.getElementById("host-line");
+
+  function line(text, kind) {
+    var item = document.createElement("li");
+    item.textContent = text;
+    if (kind) { item.className = kind; }
+    log.insertBefore(item, log.firstChild);
+    while (log.children.length > 40) { log.removeChild(log.lastChild); }
+  }
+
+  function api(path, options) {
+    options = options || {};
+    var headers = { "Content-Type": "application/json" };
+    var token = localStorage.getItem(TOKEN_KEY);
+    if (token) { headers.Authorization = "Bearer " + token; }
+    return fetch(path, {
+      method: options.method || "GET",
+      headers: headers,
+      body: options.body ? JSON.stringify(options.body) : undefined
+    }).then(function (response) {
+      return response.json().catch(function () { return {}; })
+        .then(function (data) { return { status: response.status, data: data }; });
+    });
+  }
+
+  function setState(text, kind) {
+    statePill.textContent = text;
+    statePill.className = "pill" + (kind ? " " + kind : "");
+  }
+
+  // ── health ────────────────────────────────────────────────────────────────
+  api("/health").then(function (result) {
+    if (result.status === 200 && result.data.ok) {
+      hostLine.textContent = result.data.name + " v" + result.data.version +
+        " — " + result.data.devices + " device(s) paired";
+      setState("reachable", "ok");
+    } else {
+      setState("no answer", "bad");
+    }
+  }).catch(function () { setState("offline", "bad"); });
+
+  // ── pairing ───────────────────────────────────────────────────────────────
+  document.getElementById("pair-btn").addEventListener("click", function () {
+    var code = document.getElementById("code").value.trim();
+    var name = document.getElementById("name").value.trim() || "browser";
+    var status = document.getElementById("pair-status");
+    if (!code) { status.textContent = "Enter the code from the desktop."; return; }
+    status.textContent = "Pairing…";
+    api("/pair", { method: "POST", body: { code: code, name: name,
+      platform: navigator.platform || "web" } }).then(function (result) {
+      if (result.data && result.data.ok) {
+        localStorage.setItem(TOKEN_KEY, result.data.token);
+        localStorage.setItem(DEVICE_KEY, JSON.stringify(result.data.device));
+        status.textContent = "";
+        line("Paired as " + result.data.device.name, "ok");
+        showMain(result.data.commands);
+      } else {
+        status.textContent = (result.data && result.data.detail) || "Pairing failed.";
+        line("Pairing refused: " + status.textContent, "bad");
+      }
+    }).catch(function (error) {
+      status.textContent = "Could not reach the desktop: " + error;
+    });
+  });
+
+  // ── the command grid ──────────────────────────────────────────────────────
+  function showMain(commands) {
+    document.getElementById("pair-card").classList.add("hidden");
+    document.getElementById("main-card").classList.remove("hidden");
+    var device = {};
+    try { device = JSON.parse(localStorage.getItem(DEVICE_KEY) || "{}"); } catch (e) {}
+    document.getElementById("device-line").textContent =
+      (device.name || "this device") + " · " + (device.platform || "web");
+    var grid = document.getElementById("command-grid");
+    grid.innerHTML = "";
+    (commands || []).forEach(function (command) {
+      var card = document.createElement("div");
+      card.className = "cmd";
+      var title = document.createElement("b");
+      title.textContent = command.action;
+      var summary = document.createElement("span");
+      summary.textContent = command.summary +
+        (command.confirm ? " — needs approval on the desktop." : "");
+      var button = document.createElement("button");
+      button.textContent = command.confirm ? "Request" : "Run";
+      button.addEventListener("click", function () {
+        if (command.action === "ask") { toggleAsk(); return; }
+        runCommand(command.action, {});
+      });
+      card.appendChild(title); card.appendChild(summary); card.appendChild(button);
+      grid.appendChild(card);
+    });
+  }
+
+  function toggleAsk() {
+    var box = document.getElementById("ask-box");
+    box.classList.toggle("hidden");
+    if (!box.classList.contains("hidden")) { document.getElementById("ask-text").focus(); }
+  }
+
+  document.getElementById("ask-send").addEventListener("click", function () {
+    var text = document.getElementById("ask-text").value.trim();
+    if (!text) { return; }
+    runCommand("ask", { text: text });
+  });
+
+  function runCommand(action, args) {
+    line("→ " + action + (args.text ? ": " + args.text : ""));
+    api("/command", { method: "POST", body: { action: action, args: args } })
+      .then(function (result) {
+        var data = result.data || {};
+        var kind = data.ok ? "ok" : (data.reason === "awaiting_confirmation"
+          ? "warn" : "bad");
+        line("← " + (data.detail || data.reason || "no answer"), kind);
+        if (data.image) {
+          var box = document.getElementById("shot-box");
+          box.classList.remove("hidden");
+          box.innerHTML = "";
+          var image = document.createElement("img");
+          image.className = "shot";
+          image.alt = "Screenshot from the desktop";
+          image.src = "data:" + (data.mime || "image/png") + ";base64," + data.image;
+          box.appendChild(image);
+        }
+      }).catch(function (error) { line("← could not reach the desktop: " + error, "bad"); });
+  }
+
+  document.getElementById("unlink-btn").addEventListener("click", function () {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(DEVICE_KEY);
+    line("Token forgotten on this device. Pair again to reconnect.", "warn");
+    document.getElementById("main-card").classList.add("hidden");
+    document.getElementById("pair-card").classList.remove("hidden");
+    setState("reachable", "ok");
+  });
+
+  // A stored token means this device is already paired.
+  if (localStorage.getItem(TOKEN_KEY)) {
+    api("/commands").then(function (result) {
+      if (result.data && result.data.commands) { showMain(result.data.commands); }
+    });
+  }
+})();
+</script>
+</body>
+</html>

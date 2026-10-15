@@ -1,0 +1,12 @@
+{
+  "name": "dev_tools",
+  "version": "1.0.0",
+  "description": "Developer environment tools: Git inspection, workspace command runner, and Python evaluation.",
+  "prefix": "dev",
+  "enabled": true,
+  "transport": "stdio",
+  "settings": {
+    "default_timeout": 30.0,
+    "max_output_chars": 8000
+  }
+}

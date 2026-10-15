@@ -1,0 +1,11 @@
+{
+  "name": "jarvis-agent-tars-runtime",
+  "private": true,
+  "description": "Node runtime host for Agent TARS, J.A.R.V.I.S.'s browser and PC automation executor. Gemini stays the brain; this only provides the automation engine.",
+  "dependencies": {
+    "@agent-tars/cli": "0.3.0"
+  },
+  "engines": {
+    "node": ">=22.15.0"
+  }
+}

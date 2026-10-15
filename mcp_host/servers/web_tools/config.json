@@ -1,0 +1,12 @@
+{
+  "name": "web_tools",
+  "version": "1.0.0",
+  "description": "Web page extraction, DuckDuckGo web search, and HTTP endpoint testing.",
+  "prefix": "web",
+  "enabled": true,
+  "transport": "stdio",
+  "settings": {
+    "timeout_seconds": 15.0,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 JARVIS-MCP/1.0"
+  }
+}

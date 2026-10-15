@@ -1,0 +1,12 @@
+{
+  "name": "system_tools",
+  "version": "1.0.0",
+  "description": "Native OS system metrics, process monitoring, clipboard and desktop controls.",
+  "prefix": "system",
+  "enabled": true,
+  "transport": "stdio",
+  "settings": {
+    "max_process_list": 20,
+    "allow_kill_process": true
+  }
+}

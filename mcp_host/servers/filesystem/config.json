@@ -1,0 +1,13 @@
+{
+  "name": "filesystem",
+  "version": "1.0.0",
+  "description": "Native Python filesystem operations: read, write, search, and manage workspace files.",
+  "prefix": "files",
+  "enabled": true,
+  "transport": "stdio",
+  "settings": {
+    "read_only": false,
+    "max_file_size_mb": 10,
+    "allowed_roots": ["."]
+  }
+}
