@@ -4,6 +4,8 @@ A Windows-focused desktop AI assistant that combines voice conversation, a PyQt6
 
 > **Project status:** Experimental and under active development. Many capabilities depend on external API keys, optional engines, permissions, and compatible runtimes. Review each tool's permissions before using it on a machine containing sensitive data.
 
+![image alt](https://github.com/Chivaspro/JarvisOS-Main/blob/main/J.A.R.V.I.S.%20OS%20Futuristic%20AI%20Dashboard.png)
+
 ## Features
 
 The repository currently contains source code for the following capabilities. Availability depends on configuration and the installed optional dependencies.
