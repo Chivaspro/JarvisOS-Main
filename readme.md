@@ -4,20 +4,6 @@ A Windows-focused desktop AI assistant that combines voice conversation, a PyQt6
 
 > **Project status:** Experimental and under active development. Many capabilities depend on external API keys, optional engines, permissions, and compatible runtimes. Review each tool's permissions before using it on a machine containing sensitive data.
 
-# J.A.R.V.I.S. OS
-
-<div align="center">
-
-<img src="jarvisos-banner.png" alt="J.A.R.V.I.S. OS - AI-Powered Desktop Assistant" width="100%">
-
-**Your AI-Powered Desktop Assistant**
-
-*Talk • Think • Build • Automate*
-
-</div>
-
-> **Project status:** Experimental and under active development. Many capabilities depend on external API keys, optional engines, permissions, and compatible runtimes. Review each tool's permissions before using it on a machine containing sensitive data.
-
 ## Features
 
 The repository currently contains source code for the following capabilities. Availability depends on configuration and the installed optional dependencies.
