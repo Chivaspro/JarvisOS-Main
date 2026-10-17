@@ -1,185 +1,184 @@
-# JarvisOS-Main
+# J.A.R.V.I.S. OS
 
-**JarvisOS-Main** is a project focused on building and developing JarvisOS. This repository serves as the central place for the project's source code, development, and documentation.
+A Windows-focused desktop AI assistant that combines voice conversation, a PyQt6 interface, computer and browser automation, coding assistance, system tools, and optional memory/integration backends.
 
-> 🚧 **Project Status:** Under development
+> **Project status:** Experimental and under active development. Many capabilities depend on external API keys, optional engines, permissions, and compatible runtimes. Review each tool's permissions before using it on a machine containing sensitive data.
 
-## ✨ Features
+## Features
 
-- 🧩 **Modular Architecture** — Organize the project into maintainable components.
-- ⚙️ **Configurable Setup** — Customize project settings to suit your environment.
-- 🚀 **Extensible Design** — Build on the existing codebase as the project evolves.
-- 📖 **Open Development** — Keep source code and documentation accessible to contributors.
+The repository currently contains source code for the following capabilities. Availability depends on configuration and the installed optional dependencies.
 
-*Update this section to reflect the features currently implemented in the project.*
+- **Voice assistant:** Gemini Live audio conversations, microphone input, audio output, wake-word support, voice settings, and configurable speech behavior.
+- **Desktop interface:** PyQt6-based desktop/HUD UI and launch UI.
+- **Web tools:** Web search and research, news lookup, weather search, and YouTube transcript support.
+- **Computer and browser automation:** Playwright, Agent TARS, Windows application automation, screenshot/vision utilities, and mouse/keyboard control.
+- **Coding assistance:** A developer agent that can plan project files, generate code, install dependencies, run a project, and attempt fixes. This feature should be used cautiously; see [Security notes](#security-notes).
+- **System utilities:** File tools, reminders, system monitoring, screen processing, and proactive/background tasks.
+- **Optional integrations:** MCP servers, external-app connectors, smart-home controls, and configurable memory/knowledge backends such as Mem0 and Qdrant.
+- **Configuration and diagnostics:** A setup wizard, feature switches, provider-key checks, and startup diagnostics.
 
-## 📋 Table of Contents
+These are code-level capabilities, not a guarantee that every integration is enabled or will work on every machine.
 
-- [Getting Started](#-getting-started)
-- [Prerequisites](#-prerequisites)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Project Structure](#-project-structure)
-- [Configuration](#-configuration)
-- [Contributing](#-contributing)
-- [Roadmap](#-roadmap)
-- [License](#-license)
-- [Contact](#-contact)
+## Platform and prerequisites
 
-## 🚀 Getting Started
+The setup and desktop-control paths are **primarily designed for Windows**. The project includes Windows-specific integrations such as `pywinauto`, `pywin32`, WMI, and Windows notification support. Some modules may run on other operating systems, but full non-Windows desktop-control support is not established by this repository review.
 
-Follow the instructions below to obtain a local copy of the repository and prepare it for development.
+Before installing, prepare:
 
-### Prerequisites
+- **Python 3.11 or newer**. The setup script accepts Python 3.11+; it can recommend/install Python 3.13 on Windows when necessary.
+- **Node.js 22.15.0 or newer** for the pinned Agent TARS runtime in `package.json`.
+- **Git** to clone and update the repository.
+- A **Gemini API key** for the primary Gemini-powered voice path. Other providers and integrations need their own credentials only when enabled.
+- A working microphone and audio output for voice features.
+- Internet access for model APIs, package installation, web search, and cloud integrations.
 
-Before getting started, make sure you have:
+**Compatibility note:** `setup_jarvis.py` currently checks only for Node.js 18+, but `package.json` declares `node >=22.15.0`. Use Node.js 22.15.0+ until those checks are aligned. See the audit report/repository issue tracker for the recommended fix.
 
-- [Git](https://git-scm.com/) installed.
-- The runtime, compiler, or development tools required by the project.
-- Any additional dependencies specified by the project.
+## Installation
 
-### Installation
+The following steps are intended for Windows PowerShell or Command Prompt.
 
-**1. Clone the repository**
+1. Clone the repository and enter the folder:
 
-```bash
-git clone https://github.com/Chivaspro/JarvisOS-Main.git
+   ```powershell
+   git clone https://github.com/Chivaspro/JarvisOS-Main.git
+   cd JarvisOS-Main
+   ```
+
+2. Check the runtimes:
+
+   ```powershell
+   python --version
+   node --version
+   npm --version
+   ```
+
+   If `python` is not available, install Python 3.11+ and reopen the terminal. If Agent TARS is required, confirm that `node --version` reports `v22.15.0` or higher.
+
+3. Start the interactive setup and control center:
+
+   ```powershell
+   python setup_jarvis.py
+   ```
+
+4. Follow the wizard to install the Python dependencies, configure API keys, and install optional components such as the Agent TARS Node runtime and Playwright's Chromium browser when needed. You do not need to configure every optional provider to start exploring the base app.
+
+5. Launch J.A.R.V.I.S.:
+
+   ```powershell
+   python start_jarvis.py
+   ```
+
+   `start_jarvis.py` selects a Python interpreter that can import the required UI modules and can install requirements when necessary. After setup is complete, `python setup_jarvis.py --launch` is also available.
+
+### Optional browser setup
+
+The setup wizard can install the Playwright browser binary. If Playwright is installed but Chromium is missing, run this from the project environment:
+
+```powershell
+python -m playwright install chromium
 ```
 
-**2. Navigate to the project directory**
+The Node package is an automation runtime; `package.json` does **not** define a `dev` script. Use the Python setup/launch scripts above rather than `npm run dev`.
 
-```bash
-cd JarvisOS-Main
-```
+## Configuration and API keys
 
-**3. Install dependencies**
-
-Use the installation command appropriate for the project's language and package manager.
-
-```bash
-# Example for a Node.js project
-npm install
-```
-
-**4. Start the project**
-
-Replace the example command with the appropriate command for this repository.
-
-```bash
-npm run dev
-```
-
-> Note: The dependency installation and startup commands above are examples. Confirm the correct commands from the project's configuration files before running them.
-
-## 💻 Usage
-
-Once the project is installed and configured, launch it using the appropriate startup command.
-
-Document the main functionality here, including:
-
-- How to launch JarvisOS-Main.
-- Available commands or user interactions.
-- How to configure and customize the application.
-- Examples of common workflows.
-
-### Example
+Use the setup wizard's API-key configuration flow where possible. The primary configuration file is:
 
 ```text
-# Add a real command or usage example here.
+config/api_keys.json
 ```
 
-## 📁 Project Structure
+The repository also provides `.env.example` as a placeholder/reference for supported environment values. Copy values you intend to use into your local configuration; never replace the placeholders with real credentials in a committed example.
 
-The directory structure depends on the current implementation. A suggested layout for documentation is shown below.
+- `config/api_keys.json` and `.env` are listed in `.gitignore`.
+- The Gemini key is required for the primary Gemini voice experience. Other credentials—such as optional model providers, cloud TTS, memory/knowledge services, or external apps—are only needed when you enable their corresponding features.
+- Feature flags are stored under the `features` configuration map and can also be managed in the app's Settings UI where supported.
+- Do not commit, paste into an issue, or include in diagnostic logs any API key, password, token, session cookie, or private endpoint.
+
+## Useful commands
+
+Run these commands from the repository root with the intended Python interpreter.
+
+| Command | Purpose |
+|---|---|
+| `python setup_jarvis.py` | Open the interactive setup and control center. |
+| `python setup_jarvis.py --check` | Check the local environment. |
+| `python setup_jarvis.py --diagnose` | Report the status of providers and optional engines. |
+| `python setup_jarvis.py --test` | Test configured provider credentials where supported. |
+| `python setup_jarvis.py --install-missing` | Install dependencies/components still missing according to the wizard. |
+| `python setup_jarvis.py --launch` | Launch J.A.R.V.I.S. through the setup control center. |
+| `python start_jarvis.py --check` | Check candidate Python interpreters without launching the application. |
+| `python start_jarvis.py` | Resolve the runtime and launch the app. |
+
+For development tests, install `pytest` in the development environment if it is not already present, then run the relevant suite:
+
+```powershell
+python -m pip install pytest
+python -m pytest tests/unit
+```
+
+Tests that require credentials, devices, network access, or Windows-only integrations may need a dedicated environment or mocks.
+
+## Project map
+
+This is a guide to key entry points and subsystems, not an exhaustive listing of every file.
 
 ```text
 JarvisOS-Main/
-├── src/              # Main source code
-├── assets/           # Images and other static resources
-├── tests/            # Automated tests
-├── docs/             # Project documentation
-├── .gitignore        # Git ignore rules
-└── README.md         # Project documentation
+├── main.py                  # Desktop assistant/runtime entry point
+├── start_jarvis.py          # Python interpreter resolver and launcher
+├── setup_jarvis.py          # Setup, install, diagnostics, and control center
+├── requirements.txt         # Python runtime dependencies
+├── package.json             # Agent TARS Node runtime requirement
+├── package-lock.json        # Pinned Node dependency tree
+├── .env.example             # Safe configuration template
+├── config/
+│   └── settings.py          # Centralized configuration and feature defaults
+├── core/                    # Prompt, model routing and core runtime modules
+├── actions/                 # Tool/action implementations
+├── security/                # Permission and approval gates
+└── tests/unit/              # Unit tests
 ```
 
-*Adjust this structure to match the actual files and directories in the repository.*
+## Security notes
 
-## ⚙️ Configuration
+J.A.R.V.I.S. can interact with the local desktop, work with files, run generated code, and install packages. Treat these capabilities as powerful automation, not as harmless chat features.
 
-If the project uses environment variables or configuration files:
+- Keep the app and its dependencies updated; run it as a normal user rather than an administrator unless a specific task truly requires elevation.
+- Keep desktop control, self-modifying features, and automatic coding approval disabled unless you intentionally need them and understand their scope.
+- Review generated files, proposed dependencies, and commands before executing them. Do not point the developer agent at folders containing sensitive material.
+- Use a separate test account or disposable VM for experimental code generation and automation until the coding agent runs in a properly isolated environment.
+- Do not expose local services or automation endpoints directly to the internet without authentication, access controls, and a clear threat model.
+- Use provider credentials with the minimum permissions required and rotate a key if it may have been exposed.
 
-1. Document the required settings.
-2. Provide an example configuration file, such as `.env.example`.
-3. Explain how to configure each setting.
-4. Keep API keys, passwords, and other secrets out of version control.
+The coding agent and desktop-control tools are powerful. Review their generated output and granted permissions carefully, especially when the assistant is exposed to untrusted prompts or files.
 
-Example:
+## Known maintenance items
 
-```env
-# Replace with the actual configuration options
-APP_ENV=development
-```
+- Migrate the configured Gemini Live model before its currently documented shutdown date of **November 17, 2026**. Confirm the new model's event/API behavior with an integration test before releasing the migration.
+- Align the Node.js version check in `setup_jarvis.py` with the `>=22.15.0` requirement declared by `package.json`.
+- Harden coding-agent path validation, permission error handling, execution result checks, and project isolation.
+- Add/verify CI that runs unit tests, static checks, dependency checks, and relevant security tests on each pull request.
 
-Do not add real credentials or private tokens to configuration examples.
+These are maintenance recommendations based on the source reviewed for this README and should be re-checked as the code changes.
 
-## 🛠️ Development
+## Contributing
 
-If you would like to contribute to development:
+1. Open an issue to discuss a significant change or report a reproducible bug.
+2. Create a focused branch for the change.
+3. Add or update tests for behavior changes, especially permission boundaries and tool execution.
+4. Run the applicable unit tests and setup diagnostics.
+5. Open a pull request with a clear description, test results, and any configuration/migration notes.
 
-1. Clone the repository.
-2. Create a new branch for your changes.
-3. Make your changes and test them.
-4. Commit your work with a descriptive message.
-5. Open a pull request with a summary of your changes.
+Do not include real API keys, tokens, user data, or machine-specific logs in pull requests.
 
-Example branch workflow:
+## License
 
-```bash
-git checkout -b feature/your-feature
-git add .
-git commit -m "Add your feature"
-git push origin feature/your-feature
-```
+The repository's `LICENSE` identifies the project as **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** and states that commercial use is not permitted. Read the [LICENSE](LICENSE) and the [official license text](https://creativecommons.org/licenses/by-nc/4.0/legalcode) before redistributing or adapting the project. Obtain appropriate permission from the rights holder for uses not permitted by that license.
 
-## 🗺️ Roadmap
+## Links
 
-Potential areas for future development:
-
-- [ ] Complete project documentation.
-- [ ] Improve setup and installation instructions.
-- [ ] Add automated tests.
-- [ ] Improve error handling and reliability.
-- [ ] Document implemented features and planned improvements.
-
-Update these items as development progresses.
-
-## 🤝 Contributing
-
-Contributions, suggestions, and bug reports are welcome.
-
-When contributing:
-
-- Keep changes focused and easy to review.
-- Follow the project's existing coding conventions.
-- Test changes before submitting them.
-- Describe the purpose of your changes clearly.
-
-For significant changes, open an issue first to discuss your proposal.
-
-## 📄 License
-
-Specify the license under which this project is distributed.
-
-If the repository contains a `LICENSE` file, refer to that file for the applicable terms. Do not claim a specific license until it has been confirmed.
-
-## 📬 Contact
-
-**Developer:** [Chivaspro](https://github.com/Chivaspro)
-
-**Repository:** [JarvisOS-Main](https://github.com/Chivaspro/JarvisOS-Main)
-
-For questions, suggestions, or bug reports, use the repository's GitHub Issues page if issues are enabled.
-
----
-
-*Built with curiosity, creativity, and a passion for development.*
+- [Source repository](https://github.com/Chivaspro/JarvisOS-Main)
+- [Google Gemini API model documentation](https://ai.google.dev/gemini-api/docs/models)
+- [Google Gemini API deprecations](https://ai.google.dev/gemini-api/docs/deprecations)
