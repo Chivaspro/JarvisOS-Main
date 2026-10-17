@@ -21,6 +21,31 @@ The repository currently contains source code for the following capabilities. Av
 
 These are code-level capabilities, not a guarantee that every integration is enabled or will work on every machine.
 
+## 🖥️ Screenshots
+
+Take a look at the J.A.R.V.I.S. OS interface and preview experience.
+
+<div align="center">
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <h3>🚀 Main Panel</h3>
+      <img src="https://github.com/Chivaspro/JarvisOS-Main/blob/main/Main%20Panel%20Screenshot?raw=true" alt="J.A.R.V.I.S. OS Main Panel" width="100%">
+      <p><em>The main desktop assistant interface.</em></p>
+    </td>
+    <td align="center" width="50%">
+      <h3>✨ Preview Panel</h3>
+      <img src="https://github.com/Chivaspro/JarvisOS-Main/blob/main/Preview%20panel?raw=true" alt="J.A.R.V.I.S. OS Preview Panel" width="100%">
+      <p><em>A preview of the J.A.R.V.I.S. experience.</em></p>
+    </td>
+  </tr>
+</table>
+
+</div>
+
+---
+
 ## Platform and prerequisites
 
 The setup and desktop-control paths are **primarily designed for Windows**. The project includes Windows-specific integrations such as `pywinauto`, `pywin32`, WMI, and Windows notification support. Some modules may run on other operating systems, but full non-Windows desktop-control support is not established by this repository review.
