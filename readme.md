@@ -4,6 +4,8 @@ A Windows-focused desktop AI assistant that combines voice conversation, a PyQt6
 
 > **Project status:** Experimental and under active development. Many capabilities depend on external API keys, optional engines, permissions, and compatible runtimes. Review each tool's permissions before using it on a machine containing sensitive data.
 
+![image alt](https://www.google.com/imgres?q=Jarvis&imgurl=https%3A%2F%2Fjarvis.institute%2Fpage-art%2Fjarvis-command-center-real.webp&imgrefurl=https%3A%2F%2Fjarvis.institute%2F&docid=eCf6mSAqHae-MM&tbnid=1aEEr_jTuPmQJM&vet=12ahUKEwiG2ZamtcCXAxXGjuEIHQQrCKoQnPAOegQIQRAA..i&w=1200&h=672&hcb=2&ved=2ahUKEwiG2ZamtcCXAxXGjuEIHQQrCKoQnPAOegQIQRAA)
+
 ## Features
 
 The repository currently contains source code for the following capabilities. Availability depends on configuration and the installed optional dependencies.
